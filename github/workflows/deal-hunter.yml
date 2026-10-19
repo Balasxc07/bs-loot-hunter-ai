@@ -1,0 +1,67 @@
+name: BS LOOT HUNTER AI
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  hunt-deals:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Test Telegram connection
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PY'
+          import os
+          import json
+          import urllib.request
+          import urllib.parse
+
+          token = os.environ["TELEGRAM_BOT_TOKEN"]
+          chat_id = os.environ["TELEGRAM_CHAT_ID"]
+
+          url = f"https://api.telegram.org/bot{token}/sendMessage"
+
+          data = urllib.parse.urlencode({
+              "chat_id": chat_id,
+              "text": (
+                  "🚀 BS LOOT HUNTER AI\n\n"
+                  "✅ GitHub connected to Telegram!\n"
+                  "🤖 Bot notification test successful.\n\n"
+                  "Deal-source setup is the next step."
+              )
+          }).encode()
+
+          request = urllib.request.Request(url, data=data)
+
+          with urllib.request.urlopen(request, timeout=20) as response:
+              result = json.loads(response.read().decode())
+
+          if not result.get("ok"):
+              raise RuntimeError("Telegram message failed")
+
+          print("Telegram connection successful!")
+          PY
+
+      - name: Run deal finder
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DEAL_FEED_URLS: ${{ vars.DEAL_FEED_URLS }}
+        run: python deal_finder.py
